@@ -18,7 +18,7 @@ set_session(sess)
 
 # Hyperparameters #
 num_epochs = 10
-num_filters = 14
+num_filters = 16
 batch_size = 16
 learning_rate = 3e-4
 optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
@@ -102,16 +102,18 @@ def cnn_model():
     dense = functools.partial(tf.keras.layers.Dense, activation='relu')
     conv2D = tf.keras.layers.Conv2D
     flatten = tf.keras.layers.Flatten
-    pool = tf.keras.layers.MaxPool2D
+    pool = tf.keras.layers.AveragePooling2D
 
     model = tf.keras.Sequential([
-        conv2D(filters=num_filters, kernel_size=(8, 8), strides=2),
+        conv2D(filters=num_filters, kernel_size=(2, 2), strides=2),
+        conv2D(filters=num_filters, kernel_size=(2, 2), strides=2),
         pool((2, 2)),
-        conv2D(filters=num_filters, kernel_size=(5, 5), strides=2),
+        conv2D(filters=num_filters, kernel_size=(2, 2), strides=2),
         pool((2, 2)),
-        conv2D(filters=num_filters*2, kernel_size=(4, 4), strides=2),
+        conv2D(filters=num_filters * 2, kernel_size=(3, 3), strides=2),
         pool((2, 2)),
-        conv2D(filters=num_filters*2, kernel_size=(3, 3), strides=2),
+        conv2D(filters=num_filters * 2, kernel_size=(3, 3), strides=2),
+        pool((2, 2)),
         flatten(),
         dense(24),
         dense(2, activation='softmax')
