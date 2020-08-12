@@ -17,10 +17,10 @@ sess = tf.compat.v1.Session(config=config)
 set_session(sess)
 
 # Hyperparameters #
-num_epochs = 10
-num_filters = 16
+num_epochs = 40
+num_filters = 32
 batch_size = 16
-learning_rate = 3e-4
+learning_rate = 5e-4
 optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
 
@@ -59,24 +59,25 @@ def img_mod(img):
     wd = 360
     ht = 360
 
-    layer = Image.new('RGB', (wd, ht), (255, 255, 255))
-    img.thumbnail((wd, ht))
+    layer = Image.new('RGB', (wd, ht), (0, 0, 0))
+    img = img.resize((wd, ht))
     layer.paste(img)
-    layer = np.array(layer)
-    return layer
+    img = np.array(layer)
+
+    return img
 
 
 def load_data():
     direc = os.getcwd() + '/_LABELED-FISHES-IN-THE-WILD'
-    direc_pos = '/Training_and_validation/Positive_fish/'
-    direc_neg = '/Negatives (seabed)/'
+    direc_pos = '/fish/'
+    direc_neg = '/negative/'
 
     train_pos = [(direc_pos+x) for x in os.listdir(direc+direc_pos) if x.endswith('.jpg')]
-    pos_labels = [0 for x in train_pos]
+    pos_labels = [[0] for x in train_pos]
     train_neg = [(direc_neg+x) for x in os.listdir(direc+direc_neg) if x.endswith('.jpg')]
-    neg_labels = [1 for x in train_neg]
+    neg_labels = [[1] for x in train_neg]
 
-    imgs = train_pos + train_neg  # [img_mod(Image.open(direc + x)) for x in train_pos or train_neg]
+    imgs = train_pos + train_neg  # [img_mod(Image.open(direc + x)) for x in traimage resize tensorflowin_pos or train_neg]
 
     imgs = [img_mod(Image.open(direc+x)) for x in imgs]
     labels = pos_labels + neg_labels
@@ -91,9 +92,10 @@ def load_data():
     labels = np.array(labels)
 
     imgs = (imgs).astype(np.float32)
-    labels = (labels).astype(np.int64)
+    labels = (labels).astype(np.float32)
 
     print("\nData Loading Complete")
+    print(labels)
 
     return (imgs, labels)
 
@@ -102,21 +104,19 @@ def cnn_model():
     dense = functools.partial(tf.keras.layers.Dense, activation='relu')
     conv2D = tf.keras.layers.Conv2D
     flatten = tf.keras.layers.Flatten
-    pool = tf.keras.layers.AveragePooling2D
+    pool = tf.keras.layers.MaxPool2D
 
     model = tf.keras.Sequential([
-        conv2D(filters=num_filters, kernel_size=(2, 2), strides=2),
-        conv2D(filters=num_filters, kernel_size=(2, 2), strides=2),
-        pool((2, 2)),
-        conv2D(filters=num_filters, kernel_size=(2, 2), strides=2),
+        conv2D(filters=num_filters, kernel_size=(4, 4), strides=2),
+        tf.keras.layers.BatchNormalization(),
         pool((2, 2)),
         conv2D(filters=num_filters * 2, kernel_size=(3, 3), strides=2),
         pool((2, 2)),
-        conv2D(filters=num_filters * 2, kernel_size=(3, 3), strides=2),
+        conv2D(filters=num_filters * 4, kernel_size=(3, 3), strides=2),
         pool((2, 2)),
         flatten(),
-        dense(24),
-        dense(2, activation='softmax')
+        dense(512),
+        dense(1, activation=None)
     ])
 
     return model
@@ -125,7 +125,7 @@ def cnn_model():
 def get_loss(imgs, labels, model, optimizer):
     with tf.GradientTape() as tape:
         logits = model(imgs)
-        loss = tf.keras.backend.sparse_categorical_crossentropy(labels, logits, from_logits=True)
+        loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=labels, logits=logits)
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     return loss
@@ -139,7 +139,6 @@ def train_model(fname, optimizer=tf.keras.optimizers.Adamax(5e-3)):
     print("\nData Initialized")
 
     model = cnn_model()
-    #model.predict(train_images[[0]])
     model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
 
     for i in range(num_epochs):
@@ -162,8 +161,8 @@ train_model('fish_finder', optimizer=optimizer)
 
 model = tf.keras.models.load_model('fish_finder')
 
-test_images = os.getcwd() + '/_LABELED-FISHES-IN-THE-WILD/Training_and_validation/Positive_fish/'
-test_images2 = os.getcwd() + '/_LABELED-FISHES-IN-THE-WILD/Negatives (seabed)/'
+test_images = os.getcwd() + '/_LABELED-FISHES-IN-THE-WILD/fish/'
+test_images2 = os.getcwd() + '/_LABELED-FISHES-IN-THE-WILD/negative/'
 test1 = [(test_images+x) for x in os.listdir(test_images) if x.endswith('.jpg')]
 pos_labels = [0 for x in test1]
 test2 = [(test_images2+x) for x in os.listdir(test_images2) if x.endswith('.jpg')]
@@ -178,7 +177,7 @@ test = [test[x] for x in indices]
 test = np.array([img_mod(Image.open(x)) for x in test])
 labels = np.array([labels[x] for x in indices])
 test = tf.convert_to_tensor((test/255.).astype(np.float32), dtype=tf.float32)
-labels = (labels).astype(np.int64)
+labels = (labels).astype(np.float32)
 
 test_results = model(test)
 
