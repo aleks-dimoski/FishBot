@@ -79,7 +79,7 @@ def cnn_model():
         tf.keras.layers.BatchNormalization(),
         pool((2, 2)),
         conv2D(filters=num_filters * 2, kernel_size=(3, 3), strides=2),
-        conv2D(filters=num_filters * 4, kernel_size=(3, 3), strides=2),
+        pool((2,2 )),
         flatten(),
         dense(512),
         dense(1, activation=None)
